@@ -25,7 +25,22 @@
   function shortLabel(a){return (info(a.measure)[0]||a.measure)+' · '+(a.sex||a.label);}
   function diseaseSelect(d,id='disease-select'){return '<select id="'+id+'" aria-label="Choose a disease" name="disease">'+catalog.diseases.map(x=>'<option value="'+E(x.id)+'" '+(x.id===d.id?'selected':'')+'>'+E(x.name)+'</option>').join('')+'</select>';}
   function diseaseToolbar(d,page){const destination=page==='downloads'?'results':'downloads',action=page==='downloads'?'View results ↗':'Download data ↓',available=catalog.diseases.length;return '<section class="disease-toolbar" aria-label="Disease selection"><div class="field"><label for="disease-select">Choose disease</label>'+diseaseSelect(d)+'</div><p id="disease-scope" class="disease-scope"><strong>'+nfmt(d.analyses.length)+' analysis dataset'+(d.analyses.length===1?'':'s')+'</strong>Results and downloads are scoped to this disease. '+available+' disease'+(available===1?'':'s')+' available.</p><a class="button" href="'+url(destination,{disease:d.id})+'">'+action+'</a></section>';}
-  function loadScript(path){if(scripts.has(path))return scripts.get(path);const p=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=path;s.onload=resolve;s.onerror=()=>{scripts.delete(path);s.remove();reject(new Error('Unable to load '+path+'. Please refresh the page and try again.'));};document.head.appendChild(s);});scripts.set(path,p);return p;}
+  function loadScript(path){
+    if(scripts.has(path))return scripts.get(path);
+    const p=(/\.json\.gz(?:[?#]|$)/.test(path)?(async()=>{
+      const response=await fetch(path);
+      if(!response.ok)throw new Error('Unable to load '+path+' (HTTP '+response.status+'). Please try again.');
+      if(typeof DecompressionStream==='undefined')throw new Error('This browser does not support compressed data. Please use a current version of Chrome, Edge, Firefox or Safari.');
+      const envelope=await new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).json();
+      if(!['PORTAL_DATA','PORTAL_RAF','PORTAL_BURDEN'].includes(envelope.namespace)||typeof envelope.key!=='string'||!('value' in envelope))throw new Error('The data package could not be read. Please refresh the page and try again.');
+      window[envelope.namespace][envelope.key]=envelope.value;
+    })():new Promise((resolve,reject)=>{
+      const s=document.createElement('script');s.src=path;s.onload=resolve;
+      s.onerror=()=>{s.remove();reject(new Error('Unable to load '+path+'. Please refresh the page and try again.'));};
+      document.head.appendChild(s);
+    })).catch(error=>{scripts.delete(path);throw error;});
+    scripts.set(path,p);return p;
+  }
   async function loadAnalysis(a){if(cache.has(a.id))return cache.get(a.id);await loadScript(a.data);const p=window.PORTAL_DATA[a.id];if(!p)throw new Error('Analysis data not registered: '+a.id);const rows=C.unpack(p,a);cache.set(a.id,rows);return rows;}
   async function rowsFor(d,id){return id==='all'?(await Promise.all(d.analyses.map(loadAnalysis))).flat():loadAnalysis(analysisBy(d,id));}
   function selectionNote(d){const a=d.analyses[0];return 'Query collection: P < '+String(a.selection_p)+'. Lead selection starts at P < '+String(a.lead_selection_p)+' and applies two-stage LD filtering within ±500 kb (r² > 0.6, then r² > 0.1). Browser filters do not recalculate leads.';}
