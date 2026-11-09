@@ -325,3 +325,4 @@ footer div{align-items:flex-start}
 .disease-card h3{font-size:24px;margin-bottom:10px}
 .disease-card-actions{display:flex;align-items:center;flex-wrap:wrap;gap:18px;margin-top:20px;font-size:14px}
 @media(max-width:560px){.brand{font-size:24px}.brand small{font-size:10px;letter-spacing:.025em}.brand-mark{font-size:28px}.brand{gap:8px}.disease-card{padding:20px}}
+[hidden] { display: none !important; }
